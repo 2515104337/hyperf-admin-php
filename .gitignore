@@ -1,0 +1,21 @@
+.buildpath
+.settings/
+.project
+*.patch
+.idea/
+runtime/
+vendor/
+.phpintel/
+.env
+.DS_Store
+.phpunit*
+*.cache
+.vscode/
+/phpstan.neon
+/phpunit.xml
+/.claude/
+/CLAUDE.md
+
+# Uploads & runtime artifacts
+public/uploads/*
+!public/uploads/.gitkeep
