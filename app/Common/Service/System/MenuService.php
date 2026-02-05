@@ -237,6 +237,7 @@ class MenuService
                     'id' => $menu['id'],
                     'title' => $menu['title'],
                     'authMark' => $menu['permission'],
+                    'sort' => (int) ($menu['sort'] ?? 0),
                 ];
             }
         }
