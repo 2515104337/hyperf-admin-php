@@ -1,63 +1,119 @@
-# Introduction
+# hyperf-admin-php
 
-This is a skeleton application using the Hyperf framework. This application is meant to be used as a starting place for those looking to get their feet wet with Hyperf Framework.
+基于 Hyperf 3.1 的管理后台后端基础框架（API），内置 JWT 登录鉴权、RBAC 权限（角色/菜单/按钮）、用户/角色/菜单管理、文件上传与多存储引擎（本地/阿里云 OSS/七牛/腾讯 COS）、配置中心（DB 存储）、统一参数校验与错误码规范等能力。
 
-# Requirements
+## Features
 
-Hyperf has some requirements for the system environment, it can only run under Linux and Mac environment, but due to the development of Docker virtualization technology, Docker for Windows can also be used as the running environment under Windows.
+- 认证鉴权：JWT（`Authorization: Bearer <token>`）
+- 权限控制：RBAC（角色/菜单/按钮）+ `#[Permission(code: ...)]` 注解
+- 系统管理：用户/角色/菜单（与前端动态路由/按钮权限对接）
+- 上传与存储：本地 + OSS/Qiniu/COS，多引擎可切换（配置存 DB）
+- 统一响应：`{ code, msg, data }`
+- 参数校验：`hyperf/validation` FormRequest（DTO/Request）模式，校验失败统一返回 `code=422`
+- 运行端口：默认 `9503`
 
-The various versions of Dockerfile have been prepared for you in the [hyperf/hyperf-docker](https://github.com/hyperf/hyperf-docker) project, or directly based on the already built [hyperf/hyperf](https://hub.docker.com/r/hyperf/hyperf) Image to run.
+## Requirements
 
-When you don't want to use Docker as the basis for your running environment, you need to make sure that your operating environment meets the following requirements:  
+- PHP >= 8.1
+- Swoole >= 5.0（`swoole.use_shortname=Off`）或 Swow >= 1.3
+- MySQL / Redis
 
- - PHP >= 8.1
- - Any of the following network engines
-   - Swoole PHP extension >= 5.0，with `swoole.use_shortname` set to `Off` in your `php.ini`
-   - Swow PHP extension >= 1.3
- - JSON PHP extension
- - Pcntl PHP extension
- - OpenSSL PHP extension （If you need to use the HTTPS）
- - PDO PHP extension （If you need to use the MySQL Client）
- - Redis PHP extension （If you need to use the Redis Client）
- - Protobuf PHP extension （If you need to use the gRPC Server or Client）
+## Quick Start (Local)
 
-# Installation using Composer
-
-The easiest way to create a new Hyperf project is to use [Composer](https://getcomposer.org/). If you don't have it already installed, then please install as per [the documentation](https://getcomposer.org/download/).
-
-To create your new Hyperf project:
+1) 准备环境变量（不要提交 `.env`，仓库提供 `.env.example`）
 
 ```bash
-composer create-project hyperf/hyperf-skeleton path/to/install
+cp .env.example .env
 ```
 
-If your development environment is based on Docker you can use the official Composer image to create a new Hyperf project:
+2) 安装依赖
 
 ```bash
-docker run --rm -it -v $(pwd):/app composer create-project --ignore-platform-reqs hyperf/hyperf-skeleton path/to/install
+composer install
 ```
 
-# Getting started
-
-Once installed, you can run the server immediately using the command below.
+3) 执行迁移（确保已创建数据库）
 
 ```bash
-cd path/to/install
+php bin/hyperf.php migrate
+```
+
+4) 启动服务
+
+```bash
 php bin/hyperf.php start
 ```
 
-Or if in a Docker based environment you can use the `docker-compose.yml` provided by the template:
+访问：`http://127.0.0.1:9503`
+
+## Quick Start (Docker)
 
 ```bash
-cd path/to/install
-docker-compose up
+docker-compose up --build
 ```
 
-This will start the cli-server on port `9503`, and bind it to all network interfaces. You can then visit the site at `http://localhost:9503/` which will bring up Hyperf default home page.
+端口：`9503`
 
-## Hints
+## API & Conventions
 
-- A nice tip is to rename `hyperf-skeleton` of files like `composer.json` and `docker-compose.yml` to your actual project name.
-- Take a look at `config/routes.php` and `app/Controller/IndexController.php` to see an example of a HTTP entrypoint.
+### Auth
 
-**Remember:** you can always replace the contents of this README.md file to something that fits your project description.
+- 登录：`POST /api/auth/login`
+- 用户信息：`GET /api/user/info`（需登录）
+
+### RBAC
+
+- 控制器通常挂载：
+  - `AdminAuthMiddleware`：JWT 校验并写入 Context（`admin_user_id` / `admin_username`）
+  - `PermissionMiddleware`：读取 `#[Permission(code: ...)]` 注解并校验权限码
+
+### Validation (Request DTO)
+
+已启用 `Hyperf\Validation\Middleware\ValidationMiddleware`，推荐控制器方法直接注入 Request DTO：
+
+```php
+public function login(\App\Admin\Request\Auth\LoginRequest $form)
+{
+    $data = $form->validatedData();
+    // ...
+}
+```
+
+校验失败返回示例：
+
+```json
+{
+  "code": 422,
+  "msg": "用户名 必须填写",
+  "data": {
+    "errors": {
+      "username": ["用户名 必须填写"]
+    }
+  }
+}
+```
+
+错误码常量：`app/Common/Enum/ErrorCode.php`（与 HTTP 状态语义对齐，但 HTTP 层统一返回 200）。
+
+## Config
+
+### CORS
+
+`.env.example` 提供：
+
+- `CORS_ALLOW_ORIGINS`：逗号分隔白名单；默认 `*`
+- `CORS_ALLOW_CREDENTIALS`：默认 `false`；如需 cookies/credentials，请设置为 `true` 并配置明确域名白名单（不能使用 `*`）
+
+### Upload
+
+- `UPLOAD_MAX_SIZE_MB`：应用层文件大小兜底限制（默认 128）
+- `UPLOAD_STRICT_MIME`：是否开启严格 MIME 校验（默认 false）
+
+## Docs
+
+- 详细说明：`doc.md`
+
+## License
+
+Apache-2.0
+
