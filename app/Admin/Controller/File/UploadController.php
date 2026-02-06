@@ -28,9 +28,13 @@ class UploadController extends BaseController
     #[PostMapping(path: 'image')]
     public function image(): ResponseInterface
     {
-        $cid = (int) $this->getParam('cid', 0);
-        $result = $this->uploadService->uploadImage($cid, FileEnum::SOURCE_ADMIN, $this->getUserId());
-        return $this->response->success($result);
+        try {
+            $cid = (int) $this->getParam('cid', 0);
+            $result = $this->uploadService->uploadImage($cid, FileEnum::SOURCE_ADMIN, $this->getUserId());
+            return $this->response->success($result);
+        } catch (\Throwable $e) {
+            return $this->response->error('上传失败: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -40,9 +44,13 @@ class UploadController extends BaseController
     #[PostMapping(path: 'video')]
     public function video(): ResponseInterface
     {
-        $cid = (int) $this->getParam('cid', 0);
-        $result = $this->uploadService->uploadVideo($cid, FileEnum::SOURCE_ADMIN, $this->getUserId());
-        return $this->response->success($result);
+        try {
+            $cid = (int) $this->getParam('cid', 0);
+            $result = $this->uploadService->uploadVideo($cid, FileEnum::SOURCE_ADMIN, $this->getUserId());
+            return $this->response->success($result);
+        } catch (\Throwable $e) {
+            return $this->response->error('上传失败: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -52,8 +60,12 @@ class UploadController extends BaseController
     #[PostMapping(path: 'file')]
     public function file(): ResponseInterface
     {
-        $cid = (int) $this->getParam('cid', 0);
-        $result = $this->uploadService->uploadFile($cid, FileEnum::SOURCE_ADMIN, $this->getUserId());
-        return $this->response->success($result);
+        try {
+            $cid = (int) $this->getParam('cid', 0);
+            $result = $this->uploadService->uploadFile($cid, FileEnum::SOURCE_ADMIN, $this->getUserId());
+            return $this->response->success($result);
+        } catch (\Throwable $e) {
+            return $this->response->error('上传失败: ' . $e->getMessage());
+        }
     }
 }

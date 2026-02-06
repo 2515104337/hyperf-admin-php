@@ -34,17 +34,34 @@ class Local extends Server
         $saveName = $this->buildSaveName($extension);
 
         $fullPath = BASE_PATH . '/public/uploads/' . $savePath;
+        $targetFile = $fullPath . $saveName;
 
+        // 使用 exec 创建目录，避免 Swoole 协程 hook 的 bug
         if (!is_dir($fullPath)) {
-            mkdir($fullPath, 0755, true);
+            if (extension_loaded('swoole')) {
+                @\Swoole\Coroutine\System::exec("mkdir -p " . escapeshellarg($fullPath));
+            } else {
+                @mkdir($fullPath, 0755, true);
+            }
         }
 
         try {
-            $file->moveTo($fullPath . $saveName);
+            // 获取临时文件路径
+            $tmpFile = $file->getPathname();
 
-            if (!$file->isMoved()) {
-                $this->error = '文件保存失败';
-                return false;
+            // 使用 exec mv 移动文件，避免 Swoole 协程 hook 的 bug
+            if (extension_loaded('swoole')) {
+                $result = @\Swoole\Coroutine\System::exec("mv " . escapeshellarg($tmpFile) . " " . escapeshellarg($targetFile));
+                if ($result['code'] !== 0) {
+                    $this->error = '文件保存失败';
+                    return false;
+                }
+            } else {
+                $file->moveTo($targetFile);
+                if (!$file->isMoved()) {
+                    $this->error = '文件保存失败';
+                    return false;
+                }
             }
 
             $this->fileName = 'uploads/' . $savePath . $saveName;
@@ -63,7 +80,11 @@ class Local extends Server
         $filePath = BASE_PATH . '/public/' . $fileName;
 
         if (file_exists($filePath)) {
-            return unlink($filePath);
+            // 使用 Swoole 的原生文件操作，避免协程 hook 的 bug
+            if (extension_loaded('swoole')) {
+                return @\Swoole\Coroutine\System::exec("rm -f " . escapeshellarg($filePath))['code'] === 0;
+            }
+            return @unlink($filePath);
         }
 
         return true;
