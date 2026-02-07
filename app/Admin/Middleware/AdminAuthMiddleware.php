@@ -37,14 +37,20 @@ class AdminAuthMiddleware implements MiddlewareInterface
         // 移除 Bearer 前缀（如果有）
         $token = str_replace('Bearer ', '', $token);
 
-        // 验证 token（只捕获认证相关异常）
+        // 验证 token
         try {
-            if (!$this->jwt->verifyToken($token)) {
-                return $this->response->unauthorized('Token 无效或已过期');
+            // 先解析 token 获取 claims（不验证签名）
+            $claims = $this->jwt->getClaimsByToken($token);
+
+            // 手动检查 token 是否过期（避免调用 verifyToken 的性能问题）
+            $exp = $claims['exp'] ?? null;
+            if ($exp instanceof \DateTimeInterface) {
+                if ($exp->getTimestamp() < time()) {
+                    return $this->response->unauthorized('Token 已过期，请重新登录');
+                }
             }
 
             // 获取用户信息并存入上下文
-            $claims = $this->jwt->getClaimsByToken($token);
             Context::set('admin_user_id', (int) ($claims['uid'] ?? 0));
             Context::set('admin_username', $claims['username'] ?? '');
         } catch (\Throwable $e) {
@@ -56,10 +62,10 @@ class AdminAuthMiddleware implements MiddlewareInterface
                 $e->getFile()
             ));
 
-            return $this->response->unauthorized('Token 验证失败');
+            return $this->response->unauthorized('Token 验证失败，请重新登录');
         }
 
-        // 继续处理请求（异常由全局异常处理器处理）
+        // 继续处理请求
         return $handler->handle($request);
     }
 }
