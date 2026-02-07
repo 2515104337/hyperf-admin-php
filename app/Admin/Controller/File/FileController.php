@@ -9,7 +9,6 @@ use App\Admin\Middleware\AdminAuthMiddleware;
 use App\Admin\Middleware\PermissionMiddleware;
 use App\Common\Annotation\Permission;
 use App\Common\Enum\FileEnum;
-use App\Common\Model\File\File;
 use App\Common\Service\FileCateService;
 use App\Common\Service\FileService;
 use App\Common\Service\UploadService;
@@ -41,22 +40,13 @@ class FileController extends BaseController
     #[Permission(code: 'file:list')]
     public function list(): ResponseInterface
     {
-        $params = $this->getParams();
-        $page = (int) ($params['page'] ?? 1);
-        $pageSize = (int) ($params['page_size'] ?? 20);
-
-        $query = File::filter($params)->orderBy('id', 'desc');
-
-        $total = $query->count();
-        $list = $query->offset(($page - 1) * $pageSize)
-            ->limit($pageSize)
-            ->get()
-            ->toArray();
-
-        // 添加完整URL
-        $list = $this->fileService->processFileList($list);
-
-        return $this->response->paginate($list, $page, $pageSize, $total);
+        $result = $this->fileService->getList($this->getParams());
+        return $this->response->paginate(
+            $result['records'],
+            $result['current'],
+            $result['size'],
+            $result['total']
+        );
     }
 
     /**
@@ -74,7 +64,7 @@ class FileController extends BaseController
             return $this->response->error('请选择要移动的文件');
         }
 
-        File::whereIn('id', $ids)->update(['cid' => $cid]);
+        $this->fileService->move($ids, $cid);
 
         return $this->response->success(null, '移动成功');
     }
@@ -98,12 +88,9 @@ class FileController extends BaseController
             return $this->response->error('文件名称不能为空');
         }
 
-        $file = File::find($id);
-        if (!$file) {
+        if (!$this->fileService->rename($id, $name)) {
             return $this->response->error('文件不存在');
         }
-
-        $file->update(['name' => $name]);
 
         return $this->response->success(null, '重命名成功');
     }
