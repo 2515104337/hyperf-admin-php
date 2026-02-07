@@ -9,7 +9,6 @@ use App\Admin\Middleware\AdminAuthMiddleware;
 use App\Admin\Middleware\PermissionMiddleware;
 use App\Common\Annotation\Permission;
 use App\Common\Enum\FileEnum;
-use App\Common\Exception\BusinessException;
 use App\Common\Model\File\File;
 use App\Common\Service\FileCateService;
 use App\Common\Service\FileService;
@@ -123,8 +122,12 @@ class FileController extends BaseController
             return $this->response->error('请选择要删除的文件');
         }
 
-        foreach ($ids as $id) {
-            $this->uploadService->deleteFile((int) $id);
+        try {
+            foreach ($ids as $id) {
+                $this->uploadService->deleteFile((int) $id);
+            }
+        } catch (\Throwable $e) {
+            return $this->response->error('删除失败: ' . $e->getMessage());
         }
 
         return $this->response->success(null, '删除成功');
