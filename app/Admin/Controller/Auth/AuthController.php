@@ -8,6 +8,7 @@ use App\Admin\Controller\BaseController;
 use App\Admin\Middleware\AdminAuthMiddleware;
 use App\Admin\Request\Auth\LoginRequest;
 use App\Common\Service\Auth\AuthService;
+use App\Common\Service\LoginLogService;
 use Exception;
 use Hyperf\Di\Annotation\Inject;
 use Hyperf\HttpServer\Annotation\Controller;
@@ -21,6 +22,9 @@ class AuthController extends BaseController
 {
     #[Inject]
     protected AuthService $authService;
+
+    #[Inject]
+    protected LoginLogService $loginLogService;
 
     /**
      * 用户登录
@@ -46,5 +50,23 @@ class AuthController extends BaseController
     {
         $userInfo = $this->authService->getUserInfo($this->getUserId());
         return $this->response->success($userInfo);
+    }
+
+    /**
+     * 用户登出
+     * POST /api/auth/logout
+     */
+    #[PostMapping(path: 'auth/logout')]
+    #[Middleware(AdminAuthMiddleware::class)]
+    public function logout(): ResponseInterface
+    {
+        $userId = $this->getUserId();
+        $username = $this->getUsername();
+        $ip = $this->request->getServerParams()['remote_addr'] ?? '';
+        $userAgent = $this->request->getHeaderLine('User-Agent');
+
+        $this->loginLogService->recordLogout($userId, $username, $ip, $userAgent);
+
+        return $this->response->success(null, '登出成功');
     }
 }

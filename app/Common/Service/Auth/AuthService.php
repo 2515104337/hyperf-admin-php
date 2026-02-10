@@ -6,6 +6,8 @@ namespace App\Common\Service\Auth;
 
 use App\Common\Exception\BusinessException;
 use App\Common\Model\System\AdminUser;
+use App\Common\Service\LoginLogService;
+use Hyperf\Context\ApplicationContext;
 use Phper666\JWTAuth\JWT;
 
 class AuthService
@@ -13,6 +15,11 @@ class AuthService
     public function __construct(
         protected JWT $jwt
     ) {}
+
+    private function getLoginLogService(): LoginLogService
+    {
+        return ApplicationContext::getContainer()->get(LoginLogService::class);
+    }
 
     /**
      * 用户登录
@@ -22,15 +29,43 @@ class AuthService
     {
         $user = AdminUser::where('username', $username)->first();
 
+        $request = ApplicationContext::getContainer()->get(\Hyperf\HttpServer\Contract\RequestInterface::class);
+        $ip = $this->getClientIp($request);
+        $userAgent = $request->getHeaderLine('User-Agent');
+
         if (!$user) {
+            $this->getLoginLogService()->recordLogin([
+                'user_id' => null,
+                'username' => $username,
+                'status' => 'failed',
+                'failure_reason' => '用户不存在',
+                'ip' => $ip,
+                'user_agent' => $userAgent,
+            ]);
             throw new BusinessException('用户不存在');
         }
 
         if ($user->status !== 1) {
+            $this->getLoginLogService()->recordLogin([
+                'user_id' => $user->id,
+                'username' => $username,
+                'status' => 'failed',
+                'failure_reason' => '用户已被禁用',
+                'ip' => $ip,
+                'user_agent' => $userAgent,
+            ]);
             throw new BusinessException('用户已被禁用');
         }
 
         if (!password_verify($password, $user->password)) {
+            $this->getLoginLogService()->recordLogin([
+                'user_id' => $user->id,
+                'username' => $username,
+                'status' => 'failed',
+                'failure_reason' => '密码错误',
+                'ip' => $ip,
+                'user_agent' => $userAgent,
+            ]);
             throw new BusinessException('密码错误');
         }
 
@@ -40,9 +75,20 @@ class AuthService
             'username' => $user->username,
         ]);
 
+        try {
+            $this->getLoginLogService()->recordLogin([
+                'user_id' => $user->id,
+                'username' => $username,
+                'status' => 'success',
+                'ip' => $ip,
+                'user_agent' => $userAgent,
+            ]);
+        } catch (\Throwable) {
+        }
+
         return [
             'token' => $token->toString(),
-            'refreshToken' => $token->toString(), // 暂时使用同一个 token
+            'refreshToken' => $token->toString(),
         ];
     }
 
@@ -87,5 +133,23 @@ class AuthService
         } catch (\Throwable) {
             return false;
         }
+    }
+
+    private function getClientIp($request = null): string
+    {
+        if (!$request) {
+            $request = ApplicationContext::getContainer()->get(\Hyperf\HttpServer\Contract\RequestInterface::class);
+        }
+        $serverParams = $request->getServerParams();
+
+        if (isset($serverParams['http_x_forwarded_for'])) {
+            return explode(',', $serverParams['http_x_forwarded_for'])[0];
+        }
+
+        if (isset($serverParams['http_x_real_ip'])) {
+            return $serverParams['http_x_real_ip'];
+        }
+
+        return $serverParams['remote_addr'] ?? '';
     }
 }

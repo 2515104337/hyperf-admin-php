@@ -13,5 +13,6 @@ return [
     'http' => [
         App\Admin\Middleware\CorsMiddleware::class,
         Hyperf\Validation\Middleware\ValidationMiddleware::class,
+        App\Admin\Middleware\OperationLogMiddleware::class,
     ],
 ];
